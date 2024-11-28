@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMDB CLI Terminal</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .terminal {
+            background-color: #000;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .red { background-color: #ff5f56; }
+        .yellow { background-color: #ffbd2e; }
+        .green { background-color: #27c93f; }
+
+        .terminal-title {
+            color: #666;
+            margin-left: 20px;
+        }
+
+        #output {
+            min-height: 300px;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+            color: #00ff00;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prompt {
+            color: #00ff00;
+        }
+
+        #command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .help-text {
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TMDB CLI Terminal</h1>
+        </div>
+        
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <div class="dot red"></div>
+                    <div class="dot yellow"></div>
+                    <div class="dot green"></div>
+                </div>j
+                <span class="terminal-title">tmdb-cli</span>
+            </div>
+            
+            <div id="output">Welcome to TMDB CLI!
+Type 'help' to see available commands.</div>
+            
+            <div class="input-line">
+                <span class="prompt">$</span>
+                <input type="text" id="command-input" autofocus placeholder="Type your command...">
+            </div>
+        </div>
+
+        <div class="help-text">
+            <p>Available Commands:</p>
+            <ul>
+                <li>tmdb-cli --type popular</li>
+                <li>tmdb-cli -t upcoming -l 5</li>
+                <li>tmdb-cli --help</li>
+                <li>clear (to clear the terminal)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const input = document.getElementById('command-input');
+        
+        // Replace TMDB API configuration with localStorage handling
+        const getApiKey = () => {
+            return localStorage.getItem('tmdb_api_key');
+        };
+
+        const saveApiKey = (apiKey) => {
+            localStorage.setItem('tmdb_api_key', apiKey);
+        };
+
+        let TMDB_API_KEY = getApiKey();
+        const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+        // Add function to prompt for API key
+        async function promptForApiKey() {
+            output.textContent += '\nNo API key found. Please enter your TMDB API key:';
+            input.placeholder = 'Enter your API key...';
+            
+            return new Promise((resolve) => {
+                const keyListener = async function(e) {
+                    if (e.key === 'Enter') {
+                        const apiKey = this.value;
+                        this.value = '';
+                        input.placeholder = 'Type your command...';
+                        
+                        // Hide the API key from output
+                        output.textContent += '\n********';
+                        
+                        saveApiKey(apiKey);
+                        TMDB_API_KEY = apiKey;
+                        
+                        input.removeEventListener('keypress', keyListener);
+                        resolve(apiKey);
+                    }
+                };
+                
+                input.addEventListener('keypress', keyListener);
+            });
+        }
+
+        // Add these functions before the event listener
+        function parseCommand(command) {
+            const args = command.split(' ');
+            const options = {
+                type: 'popular',
+                limit: 10
+            };
+
+            for (let i = 0; i < args.length; i++) {
+                if (args[i] === '-t' || args[i] === '--type') {
+                    options.type = args[i + 1];
+                    i++;
+                } else if (args[i] === '-l' || args[i] === '--limit') {
+                    options.limit = parseInt(args[i + 1]);
+                    i++;
+                }
+            }
+
+            return options;
+        }
+
+        async function fetchMovies(type, limit) {
+            const typeMap = {
+                'playing': 'now_playing',
+                'popular': 'popular',
+                'top': 'top_rated',
+                'upcoming': 'upcoming'
+            };
+
+            const endpoint = typeMap[type] || 'popular';
+            const url = `${TMDB_BASE_URL}/movie/${endpoint}?api_key=${TMDB_API_KEY}`;
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Failed to fetch movies');
+            }
+
+            const data = await response.json();
+            return data.results.slice(0, limit).map(movie => ({
+                title: movie.title,
+                rating: movie.vote_average,
+                release: movie.release_date,
+                overview: movie.overview
+            }));
+        }
+
+        // Modify the event listener to check for API key
+        input.addEventListener('keypress', async function(e) {
+            if (e.key === 'Enter') {
+                const command = this.value;
+                
+                if (!TMDB_API_KEY) {
+                    await promptForApiKey();
+                    output.textContent += '\nAPI key saved! You can now use the TMDB CLI commands.';
+                    this.value = '';
+                    return;
+                }
+
+                output.textContent += '\n$ ' + command;
+                
+                if (command === 'clear') {
+                    output.textContent = '';
+                } else if (command === 'tmdb-cli --help') {
+                    output.textContent += `\n
+TMDB CLI Tool
+
+Options:
+  -t, --type <type>    Type of movies to fetch (default: "popular")
+  -l, --limit <number> Limit the number of results (default: 10)
+  -h, --help          display help for command
+
+Available Types:
+  - playing   (Now Playing)
+  - popular   (Popular Movies)
+  - top       (Top Rated)
+  - upcoming  (Upcoming Movies)`;
+                } else if (command.startsWith('tmdb-cli')) {
+                    try {
+                        const options = parseCommand(command);
+                        output.textContent += '\nFetching movies...';
+                        const movies = await fetchMovies(options.type, options.limit);
+                        
+                        output.textContent += '\n\nResults:\n';
+                        movies.forEach((movie, index) => {
+                            output.textContent += `\n${index + 1}. ${movie.title}
+    Rating: ${movie.rating}/10
+    Release Date: ${movie.release}
+    Overview: ${movie.overview}\n`;
+                        });
+                    } catch (error) {
+                        output.textContent += '\nError: ' + error.message;
+                    }
+                } else {
+                    output.textContent += '\nCommand not found. Type "tmdb-cli --help" for available commands.';
+                }
+                
+                output.textContent += '\n';
+                this.value = '';
+                output.scrollTop = output.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>
