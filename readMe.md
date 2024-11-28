@@ -2,6 +2,9 @@
 
 TMDB CLI is a powerful and easy-to-use command-line tool that allows you to fetch and display movie information from [The Movie Database (TMDB)](https://www.themoviedb.org/). Effortlessly browse "Now Playing," "Popular," "Top Rated," and "Upcoming" movies right from your terminal.
 
+[Project Url](https://roadmap.sh/projects/tmdb-cli)
+
+
 ## Features
 
 - **Fetch movies by type**: Quickly retrieve lists of movies based on their category:
